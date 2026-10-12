@@ -158,7 +158,7 @@ let timer, barFill, timeLeft;
 const answers = document.querySelector('#answers');
 const audioBuffers = {}, sampleMaps = {}, sampleCandidates = {}, notePoolCache = new Map();
 const RESPONSE_TIME = 2000, ROUND_SIZE = 20, HALF_ROUND = ROUND_SIZE / 2, PASS_SCORE = 18;
-const FIRST_MIDI = 21, LAST_MIDI = 108, OCTAVE_COUNT = 7, SHEPARD_DURATION = 7;
+const FIRST_MIDI = 21, LAST_MIDI = 108, OCTAVE_COUNT = 8, SHEPARD_DURATION = 7;
 let audioContext, currentSource, sequence = [], currentIndex = 0, correct = 0;
 let phaseIndex = 0, highestUnlockedPhase = 0, expectedKey = null, waiting = false, timerId, nextRoundTimer;
 let roundDeadline = 0;
@@ -259,9 +259,11 @@ async function getBuffer(midi, instrument) {
     }
     return { buffer: audioBuffers[instrument][sampleName], semitoneDiff: midi - nearest };
 }
-function initAudio() {
-    audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
-    if (audioContext.state === 'suspended') audioContext.resume();
+async function initAudio() {
+    const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextConstructor) throw new Error('Seu navegador não oferece suporte a áudio.');
+    audioContext ||= new AudioContextConstructor();
+    if (audioContext.state === 'suspended') await audioContext.resume();
 }
 function playShepardTone() {
     const start = audioContext.currentTime + .04;
@@ -401,8 +403,8 @@ function finish(error) {
     status.innerHTML = `<div class="result">${correct} / ${ROUND_SIZE} (${percentage}%)<br>Você precisa de ${PASS_SCORE} acertos. Tente a fase novamente.</div>`;
 }
 async function startGame() {
-    initAudio();
     try {
+        await initAudio();
         clearTimeout(nextRoundTimer);
         sequence = createSequence(); currentIndex = 0; correct = 0; expectedKey = null;
         activeAnswerKeys = new Set(PHASES[phaseIndex][0].map(note => KEY_BY_NOTE[note]));
@@ -455,7 +457,6 @@ answers.addEventListener('click', event => {
     }
 });
 document.addEventListener('keydown', event => {
-    initAudio();
     const key = event.key.toLowerCase();
     if (key === 'f' && !startButton.disabled) {
         event.preventDefault();
