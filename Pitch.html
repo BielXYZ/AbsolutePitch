@@ -104,7 +104,6 @@
 
 <script>
 const NOTES = ['Dó', 'Dó#', 'Ré', 'Ré#', 'Mi', 'Fá', 'Fá#', 'Sol', 'Sol#', 'Lá', 'Lá#', 'Si'];
-const MIDI_NOTES = Object.freeze(['Dó', 'Dó#', 'Ré', 'Ré#', 'Mi', 'Fá', 'Fá#', 'Sol', 'Sol#', 'Lá', 'Lá#', 'Si']);
 const NOTE_COLORS = ['#ef4444', '#991b1b', '#f59e0b', '#a16207', '#facc15', '#22c55e', '#166534', '#22d3ee', '#2563eb', '#1d4ed8', '#9333ea', '#7e22ce'];
 const NOTE_TO_MIDI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const KEY_BY_NOTE = { 'Dó': 'q', 'Dó#': 'w', 'Ré': 'e', 'Ré#': 'r', 'Mi': 'c', 'Fá': 'v', 'Fá#': 'n', 'Sol': 'm', 'Sol#': 'u', 'Lá': 'i', 'Lá#': 'o', 'Si': 'p' };
@@ -159,11 +158,13 @@ let timer, barFill, timeLeft;
 const answers = document.querySelector('#answers');
 const audioBuffers = {}, sampleMaps = {}, sampleCandidates = {}, notePoolCache = new Map();
 const RESPONSE_TIME = 2000, ROUND_SIZE = 20, HALF_ROUND = ROUND_SIZE / 2, PASS_SCORE = 18;
+const FIRST_MIDI = 21, LAST_MIDI = 108, OCTAVE_COUNT = 7, SHEPARD_DURATION = 7;
 let audioContext, currentSource, sequence = [], currentIndex = 0, correct = 0;
 let phaseIndex = 0, highestUnlockedPhase = 0, expectedKey = null, waiting = false, timerId, nextRoundTimer;
+let roundDeadline = 0;
 let activeAnswerKeys = new Set();
 let shepardSources = [];
-let selectedOctaves = [], selectedInstrument = 'piano';
+let selectedInstrument = 'piano';
 let lockedScrollY = 0;
 const PROGRESS_KEY = 'absolute-pitch-highest-phase';
 const THEME_KEY = 'absolute-pitch-theme';
@@ -189,7 +190,7 @@ function renderChoices() {
 }
 function availableOctaves(instrument) {
     const [, min, max] = INSTRUMENTS[instrument];
-    return Array.from({ length: 7 }, (_, index) => index + 1).filter(octave => {
+    return Array.from({ length: OCTAVE_COUNT }, (_, index) => index + 1).filter(octave => {
         const firstMidi = (octave + 1) * 12;
         return firstMidi <= max && firstMidi + 11 >= min;
     });
@@ -226,7 +227,7 @@ function shuffle(values) {
     return values;
 }
 function midiDetails(midi) {
-    return { pitchClass: MIDI_NOTES[(midi - 9) % 12], octave: Math.floor((midi - 12) / 12) };
+    return { pitchClass: NOTES[(midi - 9) % 12], octave: Math.floor((midi - 12) / 12) };
 }
 function noteToMidi(name) {
     const match = name.match(/^([A-G])s?(\d)$/); if (!match) return null;
@@ -264,7 +265,7 @@ function initAudio() {
 }
 function playShepardTone() {
     const start = audioContext.currentTime + .04;
-    const duration = 7;
+    const duration = SHEPARD_DURATION;
     const master = audioContext.createGain();
     master.gain.setValueAtTime(.28, start);
     master.connect(audioContext.destination);
@@ -305,7 +306,7 @@ function unlockPagePosition() {
 function availableNotes(notes, octaves, instrument) {
     const key = `${instrument}|${octaves.join(',')}|${notes.join(',')}`;
     if (notePoolCache.has(key)) return notePoolCache.get(key);
-    const pool = Array.from({ length: 88 }, (_, index) => index + 21).filter(midi => {
+    const pool = Array.from({ length: LAST_MIDI - FIRST_MIDI + 1 }, (_, index) => index + FIRST_MIDI).filter(midi => {
         const details = midiDetails(midi); return octaves.includes(details.octave) && notes.includes(details.pitchClass) && playableMidi(midi, instrument);
     });
     notePoolCache.set(key, pool);
@@ -313,7 +314,7 @@ function availableNotes(notes, octaves, instrument) {
 }
 function createSequence() {
     const [progression, outside] = PHASES[phaseIndex];
-    selectedOctaves = [...document.querySelectorAll('.octave:checked')].map(input => Number(input.value));
+    const selectedOctaves = [...document.querySelectorAll('.octave:checked')].map(input => Number(input.value));
     selectedInstrument = document.querySelector('.instrument:checked')?.value;
     if (!selectedOctaves.length || !selectedInstrument) {
         throw new Error('Escolha ao menos uma oitava e um instrumento para iniciar.');
@@ -331,6 +332,8 @@ function createSequence() {
 }
 async function playNext() {
     if (currentIndex >= sequence.length) return finish();
+    cancelAnimationFrame(timerId);
+    timer.classList.remove('active');
     const target = sequence[currentIndex++];
     const details = midiDetails(target.midi);
     expectedKey = target.outside ? 'g' : KEY_BY_NOTE[details.pitchClass];
@@ -344,7 +347,11 @@ async function playNext() {
         gain.gain.setValueAtTime(1, audioContext.currentTime); gain.gain.exponentialRampToValueAtTime(.001, audioContext.currentTime + 2);
         currentSource.connect(gain).connect(audioContext.destination); currentSource.start();
     } catch (error) { finish(error); return; }
-    waiting = true; timer.classList.add('active'); const started = performance.now();
+    waiting = true; timer.classList.add('active');
+    barFill.style.width = '100%';
+    timeLeft.textContent = `${(RESPONSE_TIME / 1000).toFixed(1)}s`;
+    const started = performance.now();
+    roundDeadline = started + RESPONSE_TIME;
     function tick() {
         const remaining = Math.max(0, RESPONSE_TIME - (performance.now() - started));
         barFill.style.width = `${remaining / RESPONSE_TIME * 100}%`; timeLeft.textContent = `${(remaining / 1000).toFixed(1)}s`;
@@ -354,9 +361,15 @@ async function playNext() {
 }
 function processAnswer(key) {
     if (!waiting || (key !== null && !activeAnswerKeys.has(key))) return;
-    waiting = false; cancelAnimationFrame(timerId); timer.classList.remove('active');
+    waiting = false;
     if (key !== null && key === expectedKey) correct++;
-    playNext();
+    if (key === null) {
+        playNext();
+        return;
+    }
+    cancelAnimationFrame(timerId);
+    timer.classList.remove('active');
+    nextRoundTimer = setTimeout(playNext, Math.max(0, roundDeadline - performance.now()));
 }
 function finish(error) {
     waiting = false; expectedKey = null; cancelAnimationFrame(timerId); clearTimeout(nextRoundTimer);
@@ -399,6 +412,7 @@ async function startGame() {
         startButton.disabled = true; phaseSelect.disabled = true; answers.classList.add('active');
         status.innerHTML = '<div class="status-line">Preparando a fase...</div>';
         await playShepardTone();
+        await new Promise(resolve => setTimeout(resolve, RESPONSE_TIME));
         if (startButton.disabled) playNext();
     } catch (error) {
         finish(error);
