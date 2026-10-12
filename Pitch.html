@@ -10,10 +10,11 @@
         * { box-sizing: border-box; }
         body { margin: 0; min-height: 100vh; display: grid; place-items: center; overflow-x: hidden; overflow-anchor: none; background: #fff; }
         main { width: min(680px, 92vw); padding: 34px 16px; text-align: center; overflow-anchor: none; }
-        .brand { margin-bottom: 26px; }
-        .brand-mark { display: none; }
+        .brand { position: relative; margin-bottom: 26px; }
         h1 { margin: 0 0 8px; color: #222; font-size: 1.8rem; font-weight: 700; }
         .subtitle { margin: 0; color: #666; font-size: .95rem; }
+        .theme-toggle { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid #d0d0d0; border-radius: 50%; background: #f5f5f5; color: #222; cursor: pointer; font-size: 1.15rem; line-height: 1; }
+        .theme-toggle:hover, .theme-toggle:focus-visible { border-color: #999; outline: none; }
         .settings { display: grid; gap: 18px; margin-bottom: 22px; }
         .field { display: grid; gap: 8px; }
         .field-title { color: #666; font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
@@ -28,7 +29,6 @@
         .phase-info strong { display: block; margin-bottom: 5px; color: #222; font-size: 1rem; }
         .phase-info span { color: #666; font-size: .95rem; }
         .primary { width: 100%; margin: 20px 0; background: #222; color: #fff; border-color: #222; font-weight: 700; transition: background .15s; }
-        .primary::before { content: ""; }
         .primary:hover:not(:disabled) { background: #444; }
         .primary:disabled { opacity: .45; cursor: not-allowed; }
         select { width: 100%; padding: 11px 14px; border: 1px solid #d0d0d0; border-radius: 7px; background: #fff; color: #222; font: inherit; }
@@ -55,13 +55,28 @@
         .answer-key { display: block; margin-top: 3px; font-size: .68rem; opacity: .8; }
         .answer-oob { position: static; display: block; width: min(100%, 260px); min-height: auto; margin: 12px auto 0; border-radius: 7px; background: #f2f2f2; border-color: #aaa; color: #444; transform: none; }
         .answer-oob:active { transform: scale(.96); }
+        body.dark { color: #eee; background: #181818; }
+        body.dark h1, body.dark .phase-info strong, body.dark .result { color: #f5f5f5; }
+        body.dark .subtitle, body.dark .field-title, body.dark .phase-info span, body.dark .status-line, body.dark #time-left { color: #aaa; }
+        body.dark .theme-toggle, body.dark .choice { border-color: #4a4a4a; background: #292929; color: #eee; }
+        body.dark .choice:hover, body.dark .theme-toggle:hover, body.dark .theme-toggle:focus-visible { border-color: #777; }
+        body.dark .choice:has(input:checked), body.dark .primary { background: #f5f5f5; color: #181818; border-color: #f5f5f5; }
+        body.dark .primary:hover:not(:disabled) { background: #d8d8d8; }
+        body.dark select { border-color: #4a4a4a; background: #292929; color: #eee; }
+        body.dark select:disabled { background: #222; color: #888; }
+        body.dark .phase-info { border-color: #3a3a3a; background: #222; }
+        body.dark .answers.active { background: #181818; }
+        body.dark .note-circle { border-color: #3a3a3a; background: radial-gradient(circle, #222 0 30%, #1d1d1d 31% 100%); }
+        body.dark .answer-oob { background: #292929; border-color: #666; color: #eee; }
+        body.dark .bar { background: #3a3a3a; }
+        body.dark #bar-fill { background: #ddd; }
         @media (max-width: 500px) { main { padding: 24px 14px; } .answer { width: 64px; min-height: 52px; font-size: .85rem; } .choice { padding: 8px 11px; font-size: .88rem; } }
     </style>
 </head>
 <body>
 <main>
     <header class="brand">
-        <div class="brand-mark" aria-hidden="true">♪</div>
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Ativar modo escuro" aria-pressed="false"><span aria-hidden="true">☾</span></button>
         <h1>Treino de Ouvido</h1>
         <p class="subtitle">Desenvolva seu ouvido absoluto, uma nota por vez.</p>
     </header>
@@ -139,6 +154,7 @@ const SAMPLES = {
 const phaseSelect = document.querySelector('#phase-select'), phaseInfo = document.querySelector('#phase-info');
 const octaveSelection = document.querySelector('#octave-selection'), instrumentSelection = document.querySelector('#instrument-selection');
 const startButton = document.querySelector('#start'), status = document.querySelector('#status');
+const themeToggle = document.querySelector('#theme-toggle');
 let timer, barFill, timeLeft;
 const answers = document.querySelector('#answers');
 const audioBuffers = {}, sampleMaps = {}, sampleCandidates = {}, notePoolCache = new Map();
@@ -150,30 +166,29 @@ let shepardSources = [];
 let selectedOctaves = [], selectedInstrument = 'piano';
 let lockedScrollY = 0;
 const PROGRESS_KEY = 'absolute-pitch-highest-phase';
+const THEME_KEY = 'absolute-pitch-theme';
+
+function setTheme(isDark) {
+    document.body.classList.toggle('dark', isDark);
+    themeToggle.setAttribute('aria-pressed', String(isDark));
+    themeToggle.setAttribute('aria-label', isDark ? 'Ativar modo claro' : 'Ativar modo escuro');
+    themeToggle.querySelector('span').textContent = isDark ? '☀' : '☾';
+}
+function loadTheme() {
+    setTheme(localStorage.getItem(THEME_KEY) === 'dark');
+}
 
 function renderChoices() {
     loadProgress();
     renderPhaseOptions();
+    octaveSelection.innerHTML = Array.from({ length: 7 }, (_, index) => {
+        const octave = index + 1;
+        return `<label class="choice"><input class="octave" type="checkbox" value="${octave}" checked>${octave}</label>`;
+    }).join('');
     instrumentSelection.innerHTML = Object.entries(INSTRUMENTS).map(([value, [label]]) =>
         `<label class="choice"><input class="instrument" type="radio" name="instrument" value="${value}"${value === 'piano' ? ' checked' : ''}>${label}</label>`
     ).join('');
-    renderOctaveChoices();
     updatePhaseInfo();
-}
-function availableOctaves(instrument) {
-    const [, min, max] = INSTRUMENTS[instrument];
-    return Array.from({ length: 7 }, (_, index) => index + 1).filter(octave => {
-        const firstMidi = (octave + 1) * 12;
-        const lastMidi = firstMidi + 11;
-        return firstMidi <= max && lastMidi >= min;
-    });
-}
-function renderOctaveChoices() {
-    const instrument = document.querySelector('.instrument:checked')?.value || 'piano';
-    const octaves = availableOctaves(instrument);
-    octaveSelection.innerHTML = octaves.map(octave =>
-        `<label class="choice"><input class="octave" type="checkbox" value="${octave}" checked>${octave}</label>`
-    ).join('');
 }
 function loadProgress() {
     const saved = Number.parseInt(localStorage.getItem(PROGRESS_KEY), 10);
@@ -299,9 +314,6 @@ function createSequence() {
     const targets = outside.length
         ? [...Array(HALF_ROUND).fill('valid'), ...Array(HALF_ROUND).fill('outside')]
         : Array(ROUND_SIZE).fill('valid');
-    if (outside.length && (targets.filter(type => type === 'valid').length !== HALF_ROUND || targets.filter(type => type === 'outside').length !== HALF_ROUND)) {
-        throw new Error('A rodada precisa conter exatamente 50% de notas da progressão e 50% de notas fora do tom.');
-    }
     return shuffle(targets).map(type => {
         const pool = type === 'valid' ? valid : out;
         return { midi: pool[Math.floor(Math.random() * pool.length)], outside: type === 'outside' };
@@ -403,8 +415,12 @@ phaseSelect.addEventListener('change', () => {
     renderAnswers();
     status.innerHTML = '';
 });
-instrumentSelection.addEventListener('change', renderOctaveChoices);
 startButton.addEventListener('click', startGame);
+themeToggle.addEventListener('click', () => {
+    const isDark = !document.body.classList.contains('dark');
+    setTheme(isDark);
+    localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+});
 answers.addEventListener('click', event => {
     event.preventDefault();
     const button = event.target.closest('.answer');
@@ -424,6 +440,7 @@ document.addEventListener('keydown', event => {
         processAnswer(key);
     }
 });
+loadTheme();
 renderChoices(); renderAnswers();
 </script>
 </body>
