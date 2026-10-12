@@ -353,10 +353,10 @@ async function playNext() {
     timerId = requestAnimationFrame(tick);
 }
 function processAnswer(key) {
-    if (!waiting || !activeAnswerKeys.has(key)) return;
+    if (!waiting || (key !== null && !activeAnswerKeys.has(key))) return;
     waiting = false; cancelAnimationFrame(timerId); timer.classList.remove('active');
-    if (key === expectedKey) correct++;
-    nextRoundTimer = setTimeout(playNext, 600);
+    if (key !== null && key === expectedKey) correct++;
+    playNext();
 }
 function finish(error) {
     waiting = false; expectedKey = null; cancelAnimationFrame(timerId); clearTimeout(nextRoundTimer);
