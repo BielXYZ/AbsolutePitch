@@ -181,14 +181,24 @@ function loadTheme() {
 function renderChoices() {
     loadProgress();
     renderPhaseOptions();
-    octaveSelection.innerHTML = Array.from({ length: 7 }, (_, index) => {
-        const octave = index + 1;
-        return `<label class="choice"><input class="octave" type="checkbox" value="${octave}" checked>${octave}</label>`;
-    }).join('');
     instrumentSelection.innerHTML = Object.entries(INSTRUMENTS).map(([value, [label]]) =>
         `<label class="choice"><input class="instrument" type="radio" name="instrument" value="${value}"${value === 'piano' ? ' checked' : ''}>${label}</label>`
     ).join('');
+    renderOctaveChoices();
     updatePhaseInfo();
+}
+function availableOctaves(instrument) {
+    const [, min, max] = INSTRUMENTS[instrument];
+    return Array.from({ length: 7 }, (_, index) => index + 1).filter(octave => {
+        const firstMidi = (octave + 1) * 12;
+        return firstMidi <= max && firstMidi + 11 >= min;
+    });
+}
+function renderOctaveChoices() {
+    const instrument = document.querySelector('.instrument:checked')?.value || 'piano';
+    octaveSelection.innerHTML = availableOctaves(instrument).map(octave =>
+        `<label class="choice"><input class="octave" type="checkbox" value="${octave}" checked>${octave}</label>`
+    ).join('');
 }
 function loadProgress() {
     const saved = Number.parseInt(localStorage.getItem(PROGRESS_KEY), 10);
@@ -415,6 +425,7 @@ phaseSelect.addEventListener('change', () => {
     renderAnswers();
     status.innerHTML = '';
 });
+instrumentSelection.addEventListener('change', renderOctaveChoices);
 startButton.addEventListener('click', startGame);
 themeToggle.addEventListener('click', () => {
     const isDark = !document.body.classList.contains('dark');
