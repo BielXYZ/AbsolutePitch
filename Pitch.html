@@ -89,7 +89,7 @@
         </div>
         <div class="field">
             <div class="field-title">Oitavas</div>
-            <div class="choices" id="octave-selection"></div>
+            <div class="phase-info" id="octave-info"></div>
         </div>
         <div class="field">
             <div class="field-title">Instrumento</div>
@@ -151,7 +151,7 @@ const SAMPLES = {
     violin: 'G3 A3 C4 E4 G4 A4 C5 E5 G5 A5 C6 E6 G6 A6 C7', xylophone: 'G4 C5 G5 C6 G6 C7 G7 C8'
 };
 const phaseSelect = document.querySelector('#phase-select'), phaseInfo = document.querySelector('#phase-info');
-const octaveSelection = document.querySelector('#octave-selection'), instrumentSelection = document.querySelector('#instrument-selection');
+const octaveInfo = document.querySelector('#octave-info'), instrumentSelection = document.querySelector('#instrument-selection');
 const startButton = document.querySelector('#start'), status = document.querySelector('#status');
 const themeToggle = document.querySelector('#theme-toggle');
 let timer, barFill, timeLeft;
@@ -161,12 +161,13 @@ const RESPONSE_TIME = 2000, ROUND_SIZE = 20, HALF_ROUND = ROUND_SIZE / 2, PASS_S
 const FIRST_MIDI = 21, LAST_MIDI = 108, OCTAVE_COUNT = 8, SHEPARD_DURATION = 7;
 let audioContext, currentSource, sequence = [], currentIndex = 0, correct = 0;
 let phaseIndex = 0, highestUnlockedPhase = 0, expectedKey = null, waiting = false, timerId, nextRoundTimer;
+let currentPhases = [], selectedInstrument = 'piano';
+let starting = false;
 let roundDeadline = 0;
 let activeAnswerKeys = new Set();
 let shepardSources = [];
-let selectedInstrument = 'piano';
 let lockedScrollY = 0;
-const PROGRESS_KEY = 'absolute-pitch-highest-phase';
+const PROGRESS_KEY = 'absolute-pitch-highest-phase-';
 const THEME_KEY = 'absolute-pitch-theme';
 
 function setTheme(isDark) {
@@ -176,17 +177,33 @@ function setTheme(isDark) {
     themeToggle.querySelector('span').textContent = isDark ? '☀' : '☾';
 }
 function loadTheme() {
-    setTheme(localStorage.getItem(THEME_KEY) === 'dark');
+    setTheme(readStorage(THEME_KEY) === 'dark');
+}
+function readStorage(key) {
+    try {
+        return localStorage.getItem(key);
+    } catch (error) {
+        console.warn('Não foi possível ler as preferências locais.', error);
+        return null;
+    }
+}
+function writeStorage(key, value) {
+    try {
+        localStorage.setItem(key, value);
+    } catch (error) {
+        console.warn('Não foi possível salvar as preferências locais.', error);
+    }
 }
 
 function renderChoices() {
-    loadProgress();
-    renderPhaseOptions();
     instrumentSelection.innerHTML = Object.entries(INSTRUMENTS).map(([value, [label]]) =>
         `<label class="choice"><input class="instrument" type="radio" name="instrument" value="${value}"${value === 'piano' ? ' checked' : ''}>${label}</label>`
     ).join('');
-    renderOctaveChoices();
+    currentPhases = buildPhases('piano');
+    loadProgress();
+    renderPhaseOptions();
     updatePhaseInfo();
+    startButton.disabled = !currentPhases.length;
 }
 function availableOctaves(instrument) {
     const [, min, max] = INSTRUMENTS[instrument];
@@ -195,29 +212,53 @@ function availableOctaves(instrument) {
         return firstMidi <= max && firstMidi + 11 >= min;
     });
 }
-function renderOctaveChoices() {
-    const instrument = document.querySelector('.instrument:checked')?.value || 'piano';
-    octaveSelection.innerHTML = availableOctaves(instrument).map(octave =>
-        `<label class="choice"><input class="octave" type="checkbox" value="${octave}" checked>${octave}</label>`
-    ).join('');
+function orderedOctaves(instrument) {
+    const octaves = availableOctaves(instrument);
+    const center = Math.floor((octaves.length - 1) / 2);
+    return octaves.flatMap((_, offset) => {
+        const indexes = offset === 0 ? [center] : [center - offset, center + offset];
+        return indexes.filter(index => index >= 0 && index < octaves.length).map(index => octaves[index]);
+    });
+}
+function buildPhases(instrument) {
+    const octaves = orderedOctaves(instrument);
+    return PHASES.flatMap((phase, difficultyIndex) => octaves.map((_, octaveIndex) => {
+        const selectedOctaves = octaves.slice(0, octaveIndex + 1).sort((a, b) => a - b);
+        return {
+            progression: phase[0], outside: phase[1], octaves: selectedOctaves, difficultyIndex
+        };
+    }).filter(({ progression, outside, octaves: selectedOctaves }) => {
+        return availableNotes(progression, selectedOctaves, instrument).length &&
+            (!outside.length || availableNotes(outside, selectedOctaves, instrument).length);
+    }));
 }
 function loadProgress() {
-    const saved = Number.parseInt(localStorage.getItem(PROGRESS_KEY), 10);
-    highestUnlockedPhase = Number.isInteger(saved) ? Math.min(Math.max(saved, 0), PHASES.length - 1) : 0;
-    phaseIndex = highestUnlockedPhase;
+    const saved = Number.parseInt(readStorage(`${PROGRESS_KEY}${selectedInstrument}`), 10);
+    const lastPhase = Math.max(0, currentPhases.length - 1);
+    highestUnlockedPhase = Number.isInteger(saved) ? Math.min(Math.max(saved, 0), lastPhase) : 0;
+    phaseIndex = Math.min(highestUnlockedPhase, lastPhase);
 }
 function saveProgress() {
-    localStorage.setItem(PROGRESS_KEY, String(highestUnlockedPhase));
+    writeStorage(`${PROGRESS_KEY}${selectedInstrument}`, String(highestUnlockedPhase));
+}
+function formatOctaves(octaves) {
+    return `${octaves.length === 1 ? 'Oitava' : 'Oitavas'} ${octaves.join(', ')}`;
 }
 function renderPhaseOptions() {
-    phaseSelect.innerHTML = PHASES.map((_, index) => {
+    phaseSelect.innerHTML = currentPhases.map((phase, index) => {
         const locked = index > highestUnlockedPhase;
-        return `<option value="${index}" ${index === phaseIndex ? 'selected' : ''} ${locked ? 'disabled' : ''}>Fase ${index + 1}${locked ? ' (bloqueada)' : ''}</option>`;
+        return `<option value="${index}" ${index === phaseIndex ? 'selected' : ''} ${locked ? 'disabled' : ''}>Nível ${phase.difficultyIndex + 1} · Fase ${index + 1} · ${formatOctaves(phase.octaves)}${locked ? ' (bloqueada)' : ''}</option>`;
     }).join('');
 }
 function updatePhaseInfo() {
-    const [progression, outside] = PHASES[phaseIndex];
-    phaseInfo.innerHTML = `<strong>Fase ${phaseIndex + 1} de ${PHASES.length}: ${ROUND_SIZE} notas</strong><span>Progressão: ${progression.join(', ') || 'nenhuma'}${outside.length ? ` · Fora: ${outside.join(', ')}` : ' · Sem notas fora do tom'}</span>`;
+    if (!currentPhases.length) {
+        phaseInfo.textContent = 'Nenhuma fase disponível para este instrumento.';
+        octaveInfo.textContent = '';
+        return;
+    }
+    const { progression, outside, octaves } = currentPhases[phaseIndex];
+    phaseInfo.innerHTML = `<strong>Nível ${currentPhases[phaseIndex].difficultyIndex + 1} · Fase ${phaseIndex + 1} de ${currentPhases.length}: ${ROUND_SIZE} notas</strong><span>Progressão: ${progression.join(', ') || 'nenhuma'}${outside.length ? ` · Fora: ${outside.join(', ')}` : ' · Sem notas fora do tom'}</span>`;
+    octaveInfo.innerHTML = `<strong>${formatOctaves(octaves)}</strong><span>As oitavas são acumuladas do centro para as extremidades do instrumento.</span>`;
 }
 function shuffle(values) {
     for (let index = values.length - 1; index > 0; index--) {
@@ -255,7 +296,14 @@ async function getBuffer(midi, instrument) {
     if (!audioBuffers[instrument][sampleName]) {
         const response = await fetch(`./Samples/${instrument}/${sampleName}.wav`);
         if (!response.ok) throw new Error(`Não foi possível carregar ${sampleName}.wav (${response.status}).`);
-        audioBuffers[instrument][sampleName] = await audioContext.decodeAudioData(await response.arrayBuffer());
+        const decoded = await audioContext.decodeAudioData(await response.arrayBuffer());
+        const mono = audioContext.createBuffer(1, decoded.length, decoded.sampleRate);
+        const output = mono.getChannelData(0);
+        for (let channel = 0; channel < decoded.numberOfChannels; channel++) {
+            const input = decoded.getChannelData(channel);
+            for (let index = 0; index < decoded.length; index++) output[index] += input[index] / decoded.numberOfChannels;
+        }
+        audioBuffers[instrument][sampleName] = mono;
     }
     return { buffer: audioBuffers[instrument][sampleName], semitoneDiff: midi - nearest };
 }
@@ -314,13 +362,20 @@ function availableNotes(notes, octaves, instrument) {
     notePoolCache.set(key, pool);
     return pool;
 }
+function randomNoteByOctave(pool) {
+    const notesByOctave = new Map();
+    pool.forEach(midi => {
+        const octave = midiDetails(midi).octave;
+        const notes = notesByOctave.get(octave) || [];
+        notes.push(midi);
+        notesByOctave.set(octave, notes);
+    });
+    const octaves = [...notesByOctave.values()];
+    const notes = octaves[Math.floor(Math.random() * octaves.length)];
+    return notes[Math.floor(Math.random() * notes.length)];
+}
 function createSequence() {
-    const [progression, outside] = PHASES[phaseIndex];
-    const selectedOctaves = [...document.querySelectorAll('.octave:checked')].map(input => Number(input.value));
-    selectedInstrument = document.querySelector('.instrument:checked')?.value;
-    if (!selectedOctaves.length || !selectedInstrument) {
-        throw new Error('Escolha ao menos uma oitava e um instrumento para iniciar.');
-    }
+    const { progression, outside, octaves: selectedOctaves } = currentPhases[phaseIndex];
     const valid = availableNotes(progression, selectedOctaves, selectedInstrument);
     const out = availableNotes(outside, selectedOctaves, selectedInstrument);
     if (!valid.length || (outside.length && !out.length)) throw new Error('A combinação escolhida não possui samples disponíveis para esta fase.');
@@ -329,7 +384,7 @@ function createSequence() {
         : Array(ROUND_SIZE).fill('valid');
     return shuffle(targets).map(type => {
         const pool = type === 'valid' ? valid : out;
-        return { midi: pool[Math.floor(Math.random() * pool.length)], outside: type === 'outside' };
+        return { midi: randomNoteByOctave(pool), outside: type === 'outside' };
     });
 }
 async function playNext() {
@@ -347,7 +402,8 @@ async function playNext() {
         currentSource.buffer = sample.buffer;
         currentSource.playbackRate.value = 2 ** (sample.semitoneDiff / 12);
         gain.gain.setValueAtTime(1, audioContext.currentTime); gain.gain.exponentialRampToValueAtTime(.001, audioContext.currentTime + 2);
-        currentSource.connect(gain).connect(audioContext.destination); currentSource.start();
+        currentSource.connect(gain).connect(audioContext.destination);
+        currentSource.start();
     } catch (error) { finish(error); return; }
     waiting = true; timer.classList.add('active');
     barFill.style.width = '100%';
@@ -376,15 +432,23 @@ function processAnswer(key) {
 function finish(error) {
     waiting = false; expectedKey = null; cancelAnimationFrame(timerId); clearTimeout(nextRoundTimer);
     timer.classList.remove('active'); startButton.disabled = false; phaseSelect.disabled = false; answers.classList.remove('active');
+    instrumentSelection.querySelectorAll('input').forEach(input => { input.disabled = false; });
+    starting = false;
     unlockPagePosition();
     activeAnswerKeys.clear();
     shepardSources.forEach(source => { try { source.stop(); } catch (_) {} });
     shepardSources = [];
     if (currentSource) { try { currentSource.stop(); } catch (_) {} currentSource = null; }
-    if (error) { status.innerHTML = `<div class="error">${error.message}</div>`; return; }
+    if (error) {
+        const errorMessage = document.createElement('div');
+        errorMessage.className = 'error';
+        errorMessage.textContent = error instanceof Error ? error.message : 'Ocorreu um erro ao iniciar a fase.';
+        status.replaceChildren(errorMessage);
+        return;
+    }
     const percentage = Math.round(correct / ROUND_SIZE * 100);
     if (correct >= PASS_SCORE) {
-        if (phaseIndex === highestUnlockedPhase && highestUnlockedPhase < PHASES.length - 1) {
+        if (phaseIndex === highestUnlockedPhase && highestUnlockedPhase < currentPhases.length - 1) {
             highestUnlockedPhase++;
             saveProgress();
             phaseIndex = highestUnlockedPhase;
@@ -392,26 +456,31 @@ function finish(error) {
             updatePhaseInfo();
             renderAnswers();
             status.innerHTML = `<div class="result">${correct} / ${ROUND_SIZE} (${percentage}%)<br>Fase concluída! Próxima: fase ${phaseIndex + 1}.</div>`;
-        } else if (phaseIndex === PHASES.length - 1) {
+        } else if (phaseIndex === currentPhases.length - 1) {
             saveProgress();
             status.innerHTML = `<div class="result">${correct} / ${ROUND_SIZE} (${percentage}%)<br>Parabéns! Você concluiu todas as fases.</div>`;
         } else {
-            status.innerHTML = `<div class="result">${correct} / ${ROUND_SIZE} (${percentage}%)<br>Fase concluída. Você pode escolher outra fase desbloqueada.</div>`;
+            status.innerHTML = `<div class="result">${correct} / ${ROUND_SIZE} (${percentage}%)<br>Fase concluída. Você pode avançar para a próxima fase.</div>`;
         }
         return;
     }
     status.innerHTML = `<div class="result">${correct} / ${ROUND_SIZE} (${percentage}%)<br>Você precisa de ${PASS_SCORE} acertos. Tente a fase novamente.</div>`;
 }
 async function startGame() {
+    if (starting || startButton.disabled) return;
+    starting = true;
+    startButton.disabled = true;
+    phaseSelect.disabled = true;
+    instrumentSelection.querySelectorAll('input').forEach(input => { input.disabled = true; });
     try {
         await initAudio();
         clearTimeout(nextRoundTimer);
         sequence = createSequence(); currentIndex = 0; correct = 0; expectedKey = null;
-        activeAnswerKeys = new Set(PHASES[phaseIndex][0].map(note => KEY_BY_NOTE[note]));
-        if (PHASES[phaseIndex][1].length) activeAnswerKeys.add('g');
+        activeAnswerKeys = new Set(currentPhases[phaseIndex].progression.map(note => KEY_BY_NOTE[note]));
+        if (currentPhases[phaseIndex].outside.length) activeAnswerKeys.add('g');
         startButton.blur();
         lockPagePosition();
-        startButton.disabled = true; phaseSelect.disabled = true; answers.classList.add('active');
+        answers.classList.add('active');
         status.innerHTML = '<div class="status-line">Preparando a fase...</div>';
         await playShepardTone();
         await new Promise(resolve => setTimeout(resolve, RESPONSE_TIME));
@@ -421,7 +490,7 @@ async function startGame() {
     }
 }
 function renderAnswers() {
-    const progression = PHASES[phaseIndex][0];
+    const progression = currentPhases[phaseIndex].progression;
     const lightText = new Set(['#991b1b', '#a16207', '#166534', '#2563eb', '#1d4ed8', '#9333ea', '#7e22ce']);
     answers.innerHTML = `<div class="note-circle"><div class="timer circle-timer" id="timer"><div class="bar"><div id="bar-fill"></div></div><span id="time-left"></span></div>${progression.map((note, index) => {
         const color = NOTE_COLORS[NOTES.indexOf(note)];
@@ -429,7 +498,7 @@ function renderAnswers() {
         const x = 50 + 37 * Math.sin(radians);
         const y = 50 - 37 * Math.cos(radians);
         return `<button type="button" class="answer" style="left:${x}%;top:${y}%;--note-color:${color};--note-text:${lightText.has(color) ? '#fff' : '#111'}" data-key="${KEY_BY_NOTE[note]}" aria-label="${note}, tecla ${KEY_BY_NOTE[note].toUpperCase()}">${note}<span class="answer-key">${KEY_BY_NOTE[note].toUpperCase()}</span></button>`;
-    }).join('')}</div>${PHASES[phaseIndex][1].length ? '<button class="answer answer-oob" data-key="g">Fora do tom <span class="answer-key">G</span></button>' : ''}`;
+    }).join('')}</div>${currentPhases[phaseIndex].outside.length ? '<button class="answer answer-oob" data-key="g">Fora do tom <span class="answer-key">G</span></button>' : ''}`;
     timer = answers.querySelector('#timer');
     barFill = answers.querySelector('#bar-fill');
     timeLeft = answers.querySelector('#time-left');
@@ -441,12 +510,21 @@ phaseSelect.addEventListener('change', () => {
     renderAnswers();
     status.innerHTML = '';
 });
-instrumentSelection.addEventListener('change', renderOctaveChoices);
+instrumentSelection.addEventListener('change', () => {
+    selectedInstrument = document.querySelector('.instrument:checked').value;
+    currentPhases = buildPhases(selectedInstrument);
+    loadProgress();
+    renderPhaseOptions();
+    updatePhaseInfo();
+    renderAnswers();
+    startButton.disabled = !currentPhases.length;
+    status.innerHTML = '';
+});
 startButton.addEventListener('click', startGame);
 themeToggle.addEventListener('click', () => {
     const isDark = !document.body.classList.contains('dark');
     setTheme(isDark);
-    localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+    writeStorage(THEME_KEY, isDark ? 'dark' : 'light');
 });
 answers.addEventListener('click', event => {
     event.preventDefault();
@@ -458,7 +536,12 @@ answers.addEventListener('click', event => {
 });
 document.addEventListener('keydown', event => {
     const key = event.key.toLowerCase();
-    if (key === 'f' && !startButton.disabled) {
+    const target = event.target;
+    const isFormControl = target instanceof HTMLInputElement ||
+        target instanceof HTMLSelectElement ||
+        target instanceof HTMLTextAreaElement;
+    if (key === 'f' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey &&
+        !isFormControl && !startButton.disabled) {
         event.preventDefault();
         startGame();
     } else if (waiting && activeAnswerKeys.has(key)) {
