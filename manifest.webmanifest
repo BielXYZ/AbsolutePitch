@@ -1,0 +1,20 @@
+{
+    "name": "Treino de Ouvido",
+    "short_name": "Treino de Ouvido",
+    "description": "Treine seu ouvido absoluto com diferentes instrumentos e fases.",
+    "lang": "pt-BR",
+    "start_url": "./Pitch.html",
+    "scope": "./",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#222222",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "./favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ]
+}
