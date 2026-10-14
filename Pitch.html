@@ -28,6 +28,7 @@
         .phase-info { padding: 14px; border: 1px solid #e2e2e2; border-radius: 8px; background: #fafafa; }
         .phase-info strong { display: block; margin-bottom: 5px; color: #222; font-size: 1rem; }
         .phase-info span { color: #666; font-size: .95rem; }
+        .phase-info .phase-octaves { display: block; margin-top: 5px; }
         .primary { width: 100%; margin: 20px 0; background: #222; color: #fff; border-color: #222; font-weight: 700; transition: background .15s; }
         .primary:hover:not(:disabled) { background: #444; }
         .primary:disabled { opacity: .45; cursor: not-allowed; }
@@ -86,10 +87,6 @@
             <div class="field-title">Fase</div>
             <select id="phase-select" aria-label="Escolher fase"></select>
             <div class="phase-info" id="phase-info"></div>
-        </div>
-        <div class="field">
-            <div class="field-title">Oitavas</div>
-            <div class="phase-info" id="octave-info"></div>
         </div>
         <div class="field">
             <div class="field-title">Instrumento</div>
@@ -151,7 +148,7 @@ const SAMPLES = {
     violin: 'G3 A3 C4 E4 G4 A4 C5 E5 G5 A5 C6 E6 G6 A6 C7', xylophone: 'G4 C5 G5 C6 G6 C7 G7 C8'
 };
 const phaseSelect = document.querySelector('#phase-select'), phaseInfo = document.querySelector('#phase-info');
-const octaveInfo = document.querySelector('#octave-info'), instrumentSelection = document.querySelector('#instrument-selection');
+const instrumentSelection = document.querySelector('#instrument-selection');
 const startButton = document.querySelector('#start'), status = document.querySelector('#status');
 const themeToggle = document.querySelector('#theme-toggle');
 let timer, barFill, timeLeft;
@@ -253,12 +250,10 @@ function renderPhaseOptions() {
 function updatePhaseInfo() {
     if (!currentPhases.length) {
         phaseInfo.textContent = 'Nenhuma fase disponível para este instrumento.';
-        octaveInfo.textContent = '';
         return;
     }
     const { progression, outside, octaves } = currentPhases[phaseIndex];
-    phaseInfo.innerHTML = `<strong>Nível ${currentPhases[phaseIndex].difficultyIndex + 1} · Fase ${phaseIndex + 1} de ${currentPhases.length}: ${ROUND_SIZE} notas</strong><span>Progressão: ${progression.join(', ') || 'nenhuma'}${outside.length ? ` · Fora: ${outside.join(', ')}` : ' · Sem notas fora do tom'}</span>`;
-    octaveInfo.innerHTML = `<strong>${formatOctaves(octaves)}</strong><span>As oitavas são acumuladas do centro para as extremidades do instrumento.</span>`;
+    phaseInfo.innerHTML = `<strong>Nível ${currentPhases[phaseIndex].difficultyIndex + 1} · Fase ${phaseIndex + 1} de ${currentPhases.length}: ${ROUND_SIZE} notas</strong><span>Progressão: ${progression.join(', ') || 'nenhuma'}${outside.length ? ` · Fora: ${outside.join(', ')}` : ' · Sem notas fora do tom'}</span><span class="phase-octaves">${formatOctaves(octaves)}</span>`;
 }
 function shuffle(values) {
     for (let index = values.length - 1; index > 0; index--) {
