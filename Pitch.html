@@ -645,7 +645,7 @@ function finish(error) {
             updatePhaseInfo();
             renderAnswers();
             const nextPhase = currentPhases[phaseIndex];
-            status.innerHTML = `<div class="result">${summary}Fase concluída. Você pode avançar para o Nível ${nextPhase.difficultyIndex + 1}, Fase ${nextPhase.phaseNumber}.</div>`;
+            status.innerHTML = `<div class="result">${summary}Fase concluída. Você pode avançar para o Nível ${nextPhase.difficultyIndex + 1}: Fase ${nextPhase.phaseNumber}.</div>`;
         } else if (phaseIndex === currentPhases.length - 1) {
             saveProgress();
             status.innerHTML = `<div class="result">${summary}Parabéns! Você concluiu todas as fases.</div>`;
