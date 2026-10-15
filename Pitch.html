@@ -36,6 +36,7 @@
         .phase-info { padding: 14px; border: 1px solid #e2e2e2; border-radius: 8px; background: #fafafa; }
         .phase-info strong { display: block; margin-bottom: 5px; color: #222; font-size: 1rem; }
         .phase-info span { color: #666; font-size: .95rem; }
+        .phase-info .phase-detail { display: block; }
         .phase-info .phase-octaves { display: block; margin-top: 5px; }
         .primary { width: 100%; margin: 20px 0; background: #222; color: #fff; border-color: #222; font-weight: 700; transition: background .15s; }
         .primary:hover:not(:disabled) { background: #444; }
@@ -182,7 +183,7 @@ const startButton = document.querySelector('#start'), status = document.querySel
 const themeToggle = document.querySelector('#theme-toggle');
 let timer;
 const answers = document.querySelector('#answers');
-const audioBuffers = {}, effectBuffers = {}, sampleMaps = {}, sampleCandidates = {}, notePoolCache = new Map();
+const audioBuffers = {}, audioBufferPromises = {}, effectBuffers = {}, sampleMaps = {}, sampleCandidates = {}, notePoolCache = new Map();
 const audioLoadPromises = new Map();
 const effectLoadPromises = new Map();
 const RESPONSE_TIME = 2000, ROUND_SIZE = 20, HALF_ROUND = ROUND_SIZE / 2, PASS_SCORE = 18;
@@ -261,7 +262,7 @@ async function requestPersistentStorage() {
 async function loadAudioData(path) {
     const key = `${AUDIO_CACHE_VERSION}:${path}`;
     if (!audioLoadPromises.has(key)) {
-        audioLoadPromises.set(key, (async () => {
+        const loadPromise = (async () => {
             try {
                 const cached = await readCachedAudio(key);
                 if (cached) return cached;
@@ -277,7 +278,11 @@ async function loadAudioData(path) {
                 console.warn('Não foi possível salvar o áudio no cache persistente.', error);
             }
             return data;
-        })());
+        })();
+        audioLoadPromises.set(key, loadPromise);
+        loadPromise.catch(() => {
+            if (audioLoadPromises.get(key) === loadPromise) audioLoadPromises.delete(key);
+        });
     }
     return audioLoadPromises.get(key);
 }
@@ -286,7 +291,8 @@ function renderChoices() {
     instrumentSelection.innerHTML = Object.entries(INSTRUMENTS).map(([value, [label]]) =>
         `<option value="${value}"${value === 'piano' ? ' selected' : ''}>${label}</option>`
     ).join('');
-    currentPhases = buildPhases('piano');
+    selectedInstrument = instrumentSelection.value;
+    currentPhases = buildPhases(selectedInstrument);
     loadProgress();
     renderPhaseOptions();
     updatePhaseInfo();
@@ -309,18 +315,23 @@ function orderedOctaves(instrument) {
 }
 function buildPhases(instrument) {
     const octaves = orderedOctaves(instrument);
-    return PHASES.flatMap((phase, difficultyIndex) => octaves.map((_, octaveIndex) => {
-        const selectedOctaves = octaves.slice(0, octaveIndex + 1).sort((a, b) => a - b);
-        return {
-            progression: phase[0], outside: phase[1], octaves: selectedOctaves, difficultyIndex
-        };
-    }).filter(({ progression, outside, octaves: selectedOctaves }) => {
-        return availableNotes(progression, selectedOctaves, instrument).length &&
-            (!outside.length || availableNotes(outside, selectedOctaves, instrument).length);
-    }));
+    return PHASES.flatMap((phase, difficultyIndex) => {
+        const phasesInLevel = octaves.map((_, octaveIndex) => {
+            const selectedOctaves = octaves.slice(0, octaveIndex + 1).sort((a, b) => a - b);
+            return {
+                progression: phase[0], outside: phase[1], octaves: selectedOctaves, difficultyIndex
+            };
+        }).filter(({ progression, outside, octaves: selectedOctaves }) => {
+            return availableNotes(progression, selectedOctaves, instrument).length &&
+                (!outside.length || availableNotes(outside, selectedOctaves, instrument).length);
+        });
+        return phasesInLevel.map((phaseData, phaseIndex) => ({
+            ...phaseData, phaseNumber: phaseIndex + 1, phaseCount: phasesInLevel.length
+        }));
+    });
 }
 function loadProgress() {
-    const saved = Number.parseInt(readStorage(`${PROGRESS_KEY}${selectedInstrument}`), 10);
+    const saved = Number(readStorage(`${PROGRESS_KEY}${selectedInstrument}`));
     const lastPhase = Math.max(0, currentPhases.length - 1);
     highestUnlockedPhase = Number.isInteger(saved) ? Math.min(Math.max(saved, 0), lastPhase) : 0;
     phaseIndex = Math.min(highestUnlockedPhase, lastPhase);
@@ -331,19 +342,19 @@ function saveProgress() {
 function renderPhaseOptions() {
     phaseSelect.innerHTML = currentPhases.map((phase, index) => {
         const locked = index > highestUnlockedPhase;
-        return `<option value="${index}" ${index === phaseIndex ? 'selected' : ''} ${locked ? 'disabled' : ''}>Nível ${phase.difficultyIndex + 1} · Fase ${index + 1}${locked ? ' (bloqueada)' : ''}</option>`;
+        return `<option value="${index}" ${index === phaseIndex ? 'selected' : ''} ${locked ? 'disabled' : ''}>Nível ${phase.difficultyIndex + 1} · Fase ${phase.phaseNumber}${locked ? ' (bloqueada)' : ''}</option>`;
     }).join('');
 }
 function formatOctaves(octaves) {
     return `${octaves.length === 1 ? 'Oitava:' : 'Oitavas'} ${octaves.join(', ')}`;
 }
 function updatePhaseInfo() {
-    if (!currentPhases.length) {
+    const phase = currentPhases[phaseIndex];
+    if (!phase) {
         phaseInfo.textContent = 'Nenhuma fase disponível para este instrumento.';
         return;
     }
-    const { progression, outside, octaves } = currentPhases[phaseIndex];
-    phaseInfo.innerHTML = `<strong>Nível ${currentPhases[phaseIndex].difficultyIndex + 1} · Fase ${phaseIndex + 1} de ${currentPhases.length}: ${ROUND_SIZE} notas</strong><span>Progressão: ${progression.join(', ') || 'nenhuma'}${outside.length ? ` · Fora: ${outside.join(', ')}` : ' · Sem notas fora do tom'}</span><span class="phase-octaves">${formatOctaves(octaves)}</span>`;
+    phaseInfo.innerHTML = `<span class="phase-detail">Contidos: ${phase.progression.join(', ') || 'nenhuma'}</span><span class="phase-detail">Não Contidos: ${phase.outside.join(', ') || 'nenhuma'}</span><span class="phase-octaves">${formatOctaves(phase.octaves)}</span>`;
 }
 function shuffle(values) {
     for (let index = values.length - 1; index > 0; index--) {
@@ -388,25 +399,40 @@ function sampleMap(instrument) {
     return sampleMaps[instrument];
 }
 function playableMidi(midi, instrument) { const [, min, max] = INSTRUMENTS[instrument]; return midi >= min && midi <= max; }
-async function getBuffer(midi, instrument) {
-    if (location.protocol === 'file:') throw new Error('Abra o site por um servidor local para carregar os samples.');
-    audioBuffers[instrument] ||= {};
+function nearestSampleName(midi, instrument) {
     const map = sampleMap(instrument);
     const nearest = sampleCandidates[instrument].reduce((closest, candidate) => {
         return Math.abs(midi - candidate) < Math.abs(midi - closest) ? candidate : closest;
     });
-    const sampleName = map[nearest];
-    if (!audioBuffers[instrument][sampleName]) {
-        const decoded = await audioContext.decodeAudioData(await loadAudioData(`./Samples/${instrument}/${sampleName}.wav`));
-        const mono = audioContext.createBuffer(1, decoded.length, decoded.sampleRate);
-        const output = mono.getChannelData(0);
-        for (let channel = 0; channel < decoded.numberOfChannels; channel++) {
-            const input = decoded.getChannelData(channel);
-            for (let index = 0; index < decoded.length; index++) output[index] += input[index] / decoded.numberOfChannels;
-        }
-        audioBuffers[instrument][sampleName] = mono;
+    return map[nearest];
+}
+async function getBuffer(midi, instrument) {
+    if (location.protocol === 'file:') throw new Error('Abra o site por um servidor local para carregar os samples.');
+    audioBuffers[instrument] ||= {};
+    audioBufferPromises[instrument] ||= {};
+    const sampleName = nearestSampleName(midi, instrument);
+    const sampleMidi = noteToMidi(sampleName);
+    if (!audioBuffers[instrument][sampleName] && !audioBufferPromises[instrument][sampleName]) {
+        const loadPromise = (async () => {
+            const decoded = await audioContext.decodeAudioData(await loadAudioData(`./Samples/${instrument}/${sampleName}.wav`));
+            const mono = audioContext.createBuffer(1, decoded.length, decoded.sampleRate);
+            const output = mono.getChannelData(0);
+            for (let channel = 0; channel < decoded.numberOfChannels; channel++) {
+                const input = decoded.getChannelData(channel);
+                for (let index = 0; index < decoded.length; index++) output[index] += input[index] / decoded.numberOfChannels;
+            }
+            audioBuffers[instrument][sampleName] = mono;
+            return mono;
+        })();
+        audioBufferPromises[instrument][sampleName] = loadPromise;
+        loadPromise.catch(() => {
+            if (audioBufferPromises[instrument][sampleName] === loadPromise) {
+                delete audioBufferPromises[instrument][sampleName];
+            }
+        });
     }
-    return { buffer: audioBuffers[instrument][sampleName], semitoneDiff: midi - nearest };
+    const buffer = audioBuffers[instrument][sampleName] || await audioBufferPromises[instrument][sampleName];
+    return { buffer, semitoneDiff: midi - sampleMidi };
 }
 async function initAudio() {
     const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
@@ -428,9 +454,13 @@ async function playEffectSound(filename) {
 async function preloadEffectSound(filename) {
     if (effectBuffers[filename]) return;
     if (!effectLoadPromises.has(filename)) {
-        effectLoadPromises.set(filename, loadAudioData(`./Samples/${filename}`)
+        const loadPromise = loadAudioData(`./Samples/${filename}`)
             .then(data => audioContext.decodeAudioData(data))
-            .then(buffer => { effectBuffers[filename] = buffer; }));
+            .then(buffer => { effectBuffers[filename] = buffer; });
+        effectLoadPromises.set(filename, loadPromise);
+        loadPromise.catch(() => {
+            if (effectLoadPromises.get(filename) === loadPromise) effectLoadPromises.delete(filename);
+        });
     }
     await effectLoadPromises.get(filename);
 }
@@ -510,11 +540,7 @@ async function preloadPhaseAudio() {
     for (const note of notes) {
         const pool = availableNotes([note], octaves, selectedInstrument);
         for (const midi of pool) {
-            const map = sampleMap(selectedInstrument);
-            const nearest = sampleCandidates[selectedInstrument].reduce((closest, candidate) => {
-                return Math.abs(midi - candidate) < Math.abs(midi - closest) ? candidate : closest;
-            });
-            sampleNames.add(map[nearest]);
+            sampleNames.add(nearestSampleName(midi, selectedInstrument));
         }
     }
     await Promise.all([...sampleNames].map(sampleName => getBuffer(noteToMidi(sampleName), selectedInstrument)));
@@ -618,7 +644,8 @@ function finish(error) {
             renderPhaseOptions();
             updatePhaseInfo();
             renderAnswers();
-            status.innerHTML = `<div class="result">${summary}Fase concluída. Você pode avançar para a fase ${phaseIndex + 1}.</div>`;
+            const nextPhase = currentPhases[phaseIndex];
+            status.innerHTML = `<div class="result">${summary}Fase concluída. Você pode avançar para o Nível ${nextPhase.difficultyIndex + 1}, Fase ${nextPhase.phaseNumber}.</div>`;
         } else if (phaseIndex === currentPhases.length - 1) {
             saveProgress();
             status.innerHTML = `<div class="result">${summary}Parabéns! Você concluiu todas as fases.</div>`;
@@ -665,9 +692,15 @@ async function startGame() {
     }
 }
 function renderAnswers() {
-    const progression = currentPhases[phaseIndex].progression;
+    const phase = currentPhases[phaseIndex];
+    if (!phase) {
+        answers.replaceChildren();
+        timer = null;
+        return;
+    }
+    const progression = phase.progression;
     const lightText = new Set(['#991b1b', '#a16207', '#166534', '#2563eb', '#1d4ed8', '#9333ea', '#7e22ce']);
-    const hasOutsideNote = currentPhases[phaseIndex].outside.length > 0;
+    const hasOutsideNote = phase.outside.length > 0;
     const circleSize = Math.min(window.innerWidth * (window.innerWidth <= 500 ? .96 : .92), 460);
     const radius = progression.length >= 12 ? 38 : 37;
     const neighborSpacing = progression.length <= 1
@@ -725,8 +758,9 @@ document.addEventListener('keydown', event => {
     const isFormControl = target instanceof HTMLInputElement ||
         target instanceof HTMLSelectElement ||
         target instanceof HTMLTextAreaElement;
+    if (isFormControl) return;
     if (key === 'f' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey &&
-        !isFormControl && !startButton.disabled) {
+        !startButton.disabled) {
         event.preventDefault();
         startGame();
     } else if (waiting && activeAnswerKeys.has(key)) {
