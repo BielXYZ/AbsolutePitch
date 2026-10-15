@@ -42,6 +42,9 @@ O jogo usa a Web Audio API e carrega os samples da pasta `Samples/`. Na primeira
 vez, alguns arquivos podem demorar para baixar; depois, eles ficam disponíveis
 no cache do navegador.
 
+Cada nota usa um ataque de volume curto antes do decaimento do sample, evitando
+estalos causados por uma entrada abrupta do áudio.
+
 O áudio é iniciado somente após uma ação do usuário, pois alguns navegadores
 bloqueiam reprodução automática. Se o navegador não oferecer Web Audio API ou
 mantiver o áudio bloqueado, a tela informa o problema.

@@ -34,6 +34,11 @@ O áudio é local e usa Web Audio API. Para reduzir riscos de reprodução
 automática, o contexto de áudio só é criado ou retomado durante uma ação do
 usuário. O navegador pode continuar exigindo um clique em **Iniciar fase**.
 
+As notas passam por um envelope de ganho com ataque curto e decaimento
+controlado. Além de evitar descontinuidades audíveis no início do sample, esse
+processamento acontece apenas no cliente e não altera os dados armazenados nem
+envia áudio para terceiros.
+
 Execute a aplicação por HTTP/HTTPS. Abrir `Pitch.html` com `file://` não é um
 modo suportado para carregar os samples nem para ativar o Service Worker.
 

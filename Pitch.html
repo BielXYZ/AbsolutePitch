@@ -188,6 +188,7 @@ const audioLoadPromises = new Map();
 const effectLoadPromises = new Map();
 const RESPONSE_TIME = 2000, ROUND_SIZE = 20, HALF_ROUND = ROUND_SIZE / 2, PASS_SCORE = 18;
 const FIRST_MIDI = 21, LAST_MIDI = 108, OCTAVE_COUNT = 8, SHEPARD_DURATION = 7;
+const NOTE_ATTACK = .01;
 let audioContext, currentSource, sequence = [], currentIndex = 0, correct = 0;
 let phaseIndex = 0, highestUnlockedPhase = 0, expectedKey = null, waiting = false, timerId, nextRoundTimer;
 let currentPhases = [], selectedInstrument = 'piano';
@@ -586,7 +587,10 @@ async function playNext() {
         const gain = audioContext.createGain();
         currentSource.buffer = sample.buffer;
         currentSource.playbackRate.value = 2 ** (sample.semitoneDiff / 12);
-        gain.gain.setValueAtTime(1, audioContext.currentTime); gain.gain.exponentialRampToValueAtTime(.001, audioContext.currentTime + 2);
+        const start = audioContext.currentTime;
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(1, start + NOTE_ATTACK);
+        gain.gain.exponentialRampToValueAtTime(.001, start + 2);
         currentSource.connect(gain).connect(audioContext.destination);
         currentSource.start();
     } catch (error) { finish(error); return; }
