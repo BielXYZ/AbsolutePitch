@@ -1,6 +1,6 @@
 # Treino de Ouvido
 
-Um jogo simples para treinar o reconhecimento de notas musicais. Escolha um
+Um jogo para treinar o reconhecimento de notas musicais. Escolha um
 instrumento, ouça a nota e responda em até dois segundos. Com 18 acertos em
 20, você desbloqueia a próxima fase.
 

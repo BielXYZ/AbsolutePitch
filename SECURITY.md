@@ -3,7 +3,7 @@
 ## Em poucas palavras
 
 O Treino de Ouvido roda no navegador e não possui backend, login, banco de
-dados remoto ou coleta intencional de dados pessoais. Ele não usa microfone,
+dados remoto ou coleta de dados pessoais. Ele não usa microfone,
 não grava áudio e não envia respostas ou samples para um servidor.
 
 O progresso, o tema e os caches ficam no armazenamento local do navegador.
