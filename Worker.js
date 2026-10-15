@@ -1,8 +1,8 @@
 const CACHE_VERSION = 'absolute-pitch-v1';
 const APP_SHELL = [
     './Pitch.html',
-    './manifest.webmanifest',
-    './favicon.svg'
+    './App.webmanifest',
+    './Icon.svg'
 ];
 
 self.addEventListener('install', event => {

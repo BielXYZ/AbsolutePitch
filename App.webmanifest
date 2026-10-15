@@ -11,7 +11,7 @@
     "orientation": "portrait",
     "icons": [
         {
-            "src": "./favicon.svg",
+            "src": "./Icon.svg",
             "sizes": "any",
             "type": "image/svg+xml",
             "purpose": "any maskable"

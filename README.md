@@ -70,15 +70,15 @@ um servidor. Limpar os dados do site apaga o progresso e o cache.
 ```text
 Pitch.html              # Interface e lógica do jogo
 Samples/                # Samples WAV e efeitos MP3
-sw.js                   # Cache offline
-manifest.webmanifest    # Instalação como PWA
-favicon.svg             # Ícone
+Worker.js               # Cache offline
+App.webmanifest         # Instalação como PWA
+Icon.svg                # Ícone
 SECURITY.md             # Política de segurança
 ```
 
 Para trocar um sample, atualize o arquivo correspondente e incremente
 `AUDIO_CACHE_VERSION` em `Pitch.html`. Se necessário, incremente também
-`CACHE_VERSION` em `sw.js`.
+`CACHE_VERSION` em `Worker.js`.
 
 ## Limitações importantes
 
