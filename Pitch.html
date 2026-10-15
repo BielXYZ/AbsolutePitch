@@ -133,7 +133,7 @@
 const NOTES = ['Dó', 'Dó#', 'Ré', 'Ré#', 'Mi', 'Fá', 'Fá#', 'Sol', 'Sol#', 'Lá', 'Lá#', 'Si'];
 const NOTE_COLORS = ['#ef4444', '#991b1b', '#f59e0b', '#a16207', '#facc15', '#22c55e', '#166534', '#22d3ee', '#2563eb', '#1d4ed8', '#9333ea', '#7e22ce'];
 const NOTE_TO_MIDI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-const KEY_BY_NOTE = { 'Dó': 'q', 'Dó#': 'w', 'Ré': 'e', 'Ré#': 'r', 'Mi': 'c', 'Fá': 'v', 'Fá#': 'n', 'Sol': 'm', 'Sol#': 'u', 'Lá': 'i', 'Lá#': 'o', 'Si': 'p' };
+const KEY_BY_NOTE = { 'Dó': 'q', 'Dó#': 'w', 'Ré': 'e', 'Ré#': 'r', 'Mi': 'd', 'Fá': 'f', 'Fá#': 'j', 'Sol': 'k', 'Sol#': 'u', 'Lá': 'i', 'Lá#': 'o', 'Si': 'p' };
 const PHASES = [
     [['Dó'], ['Ré']], [['Dó'], ['Ré', 'Mi']], [['Dó', 'Ré'], ['Mi', 'Fá']],
     [['Dó', 'Ré'], ['Mi', 'Fá', 'Sol']], [['Dó', 'Ré', 'Mi'], ['Fá', 'Sol', 'Lá']],
@@ -763,11 +763,7 @@ document.addEventListener('keydown', event => {
         target instanceof HTMLSelectElement ||
         target instanceof HTMLTextAreaElement;
     if (isFormControl) return;
-    if (key === 'f' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey &&
-        !startButton.disabled) {
-        event.preventDefault();
-        startGame();
-    } else if (waiting && activeAnswerKeys.has(key)) {
+    if (waiting && activeAnswerKeys.has(key)) {
         event.preventDefault();
         processAnswer(key);
     }
