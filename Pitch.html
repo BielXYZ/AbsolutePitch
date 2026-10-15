@@ -42,22 +42,31 @@
         .primary:disabled { opacity: .45; cursor: not-allowed; }
         select { width: 100%; padding: 11px 14px; border: 1px solid #d0d0d0; border-radius: 7px; background: #fff; color: #222; font: inherit; }
         select:disabled { background: #f5f5f5; color: #777; }
+        .game-instructions { margin: 0 0 20px; padding: 12px 14px; border: 1px solid #e2e2e2; border-radius: 8px; background: #fafafa; color: #666; font-size: .9rem; line-height: 1.45; }
         #status { min-height: 62px; display: grid; place-items: center; margin: 12px 0; }
         .status-line { color: #666; font-size: .9rem; }
-        .result { color: #222; font-size: 1.25rem; font-weight: 700; line-height: 1.6; }
+        .result { color: #222; font-size: 1rem; font-weight: 700; line-height: 1.6; }
+        .result-summary { width: min(100%, 460px); margin: 0 auto 10px; border-collapse: separate; border-spacing: 0; overflow: hidden; border: 1px solid #d8d8d8; border-radius: 8px; font-size: .9rem; }
+        .result-summary td { padding: 10px 8px; border-right: 1px solid #d8d8d8; }
+        .result-summary td:last-child { border-right: 0; }
+        .result-summary strong, .result-summary span { display: block; }
+        .result-summary strong { color: #666; font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+        .result-summary span { color: #222; font-size: 1.15rem; }
         .error { color: #b00020; font-size: .9rem; }
-        .timer { display: none; gap: 8px; margin: 12px 0; }
-        .timer.active { display: grid; }
-        .bar { height: 8px; overflow: hidden; border-radius: 5px; background: #e5e5e5; }
-        #bar-fill { width: 100%; height: 100%; background: #333; transition: width .08s linear; }
-        #time-left { color: #666; font-size: .8rem; font-variant-numeric: tabular-nums; }
+        .confetti { position: fixed; inset: 0; z-index: 30; overflow: hidden; pointer-events: none; }
+        .confetti-piece { position: absolute; top: -12px; width: 9px; height: 14px; background: var(--confetti-color); opacity: 0; animation: confetti-fall var(--confetti-duration) var(--confetti-delay) ease-out forwards; transform: rotate(var(--confetti-rotation)); }
+        @keyframes confetti-fall {
+            0% { opacity: 1; transform: translate3d(0, -12px, 0) rotate(0); }
+            100% { opacity: 0; transform: translate3d(var(--confetti-drift), 105vh, 0) rotate(var(--confetti-spin)); }
+        }
+        .timer { display: none; }
         .answers { display: none; }
         .answers.active { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; overflow: hidden; padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); background: #fff; }
+        .circle-timer { position: absolute; top: 50%; left: 50%; z-index: 0; width: min(calc(96vw + 14px), 474px); aspect-ratio: 1; border-radius: 50%; background: conic-gradient(from -90deg, var(--timer-color) 0 var(--timer-progress), transparent var(--timer-progress) 100%); transform: translate(-50%, -50%); transition: background .2s ease; }
+        .circle-timer::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: #fff; }
+        .circle-timer.active { display: block; }
         .note-circle { position: relative; width: min(92vw, 460px); aspect-ratio: 1; margin: 0 auto; border: 2px solid #e5e5e5; border-radius: 50%; background: radial-gradient(circle, #fff 0 30%, #fafafa 31% 100%); }
         .note-circle::after { content: "ESCOLHA"; position: absolute; inset: 42% 0 auto; color: #aaa; font-size: .7rem; font-weight: 700; letter-spacing: .12em; }
-        .circle-timer { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; width: min(48%, 180px); margin: 0; gap: 5px; pointer-events: none; transform: translateX(-50%); }
-        .circle-timer .bar { height: 7px; }
-        .circle-timer #time-left { text-align: center; }
         .answer { position: absolute; width: var(--answer-size); height: var(--answer-size); min-height: 0; padding: 7px 4px; border: 2px solid var(--note-color); border-radius: 50%; background: var(--note-color); color: var(--note-text); font-size: calc(var(--answer-size) * .25); font-weight: 700; cursor: pointer; transform: translate(-50%, -50%); box-shadow: 0 3px 8px rgb(0 0 0 / 14%); transition: filter .12s ease; }
         .answer:hover, .answer:focus-visible { filter: brightness(1.12); outline: none; }
         .answer:active { filter: brightness(.95); }
@@ -66,7 +75,7 @@
         .note-circle.has-oob::after { display: none; }
         body.dark { color: #eee; background: #181818; }
         body.dark h1, body.dark .phase-info strong, body.dark .result { color: #f5f5f5; }
-        body.dark .subtitle, body.dark .field-title, body.dark .phase-info span, body.dark .status-line, body.dark #time-left { color: #aaa; }
+        body.dark .subtitle, body.dark .field-title, body.dark .phase-info span, body.dark .status-line { color: #aaa; }
         body.dark .theme-toggle, body.dark .choice { border-color: #4a4a4a; background: #292929; color: #eee; }
         body.dark .choice:hover, body.dark .theme-toggle:hover, body.dark .theme-toggle:focus-visible { border-color: #777; }
         body.dark .choice:has(input:checked), body.dark .primary { background: #f5f5f5; color: #181818; border-color: #f5f5f5; }
@@ -74,11 +83,15 @@
         body.dark select { border-color: #4a4a4a; background: #292929; color: #eee; }
         body.dark select:disabled { background: #222; color: #888; }
         body.dark .phase-info { border-color: #3a3a3a; background: #222; }
+        body.dark .game-instructions { border-color: #3a3a3a; background: #222; color: #aaa; }
+        body.dark .result-summary { border-color: #4a4a4a; }
+        body.dark .result-summary td { border-color: #4a4a4a; }
+        body.dark .result-summary strong { color: #aaa; }
+        body.dark .result-summary span { color: #f5f5f5; }
         body.dark .answers.active { background: #181818; }
+        body.dark .circle-timer::after { background: #181818; }
         body.dark .note-circle { border-color: #3a3a3a; background: radial-gradient(circle, #222 0 30%, #1d1d1d 31% 100%); }
         body.dark .answer-oob { background: #292929; border-color: #666; color: #eee; }
-        body.dark .bar { background: #3a3a3a; }
-        body.dark #bar-fill { background: #ddd; }
         @media (max-width: 500px) {
             main { padding: 24px 14px; }
             .answers.active { padding-left: 8px; padding-right: 8px; }
@@ -109,6 +122,7 @@
         </div>
     </section>
 
+    <p class="game-instructions">A fase tem 20 notas, então para cada nota, aperte em menos de 2 segundos a nota correta.</p>
     <button type="button" class="primary" id="start">Iniciar fase</button>
     <div id="status"></div>
     <div class="answers" id="answers"></div>
@@ -166,9 +180,11 @@ const phaseSelect = document.querySelector('#phase-select'), phaseInfo = documen
 const instrumentSelection = document.querySelector('#instrument-selection');
 const startButton = document.querySelector('#start'), status = document.querySelector('#status');
 const themeToggle = document.querySelector('#theme-toggle');
-let timer, barFill, timeLeft;
+let timer;
 const answers = document.querySelector('#answers');
-const audioBuffers = {}, sampleMaps = {}, sampleCandidates = {}, notePoolCache = new Map();
+const audioBuffers = {}, effectBuffers = {}, sampleMaps = {}, sampleCandidates = {}, notePoolCache = new Map();
+const audioLoadPromises = new Map();
+const effectLoadPromises = new Map();
 const RESPONSE_TIME = 2000, ROUND_SIZE = 20, HALF_ROUND = ROUND_SIZE / 2, PASS_SCORE = 18;
 const FIRST_MIDI = 21, LAST_MIDI = 108, OCTAVE_COUNT = 8, SHEPARD_DURATION = 7;
 let audioContext, currentSource, sequence = [], currentIndex = 0, correct = 0;
@@ -178,8 +194,12 @@ let starting = false;
 let roundDeadline = 0;
 let activeAnswerKeys = new Set();
 let shepardSources = [];
+let lastShepardNote = -1;
 const PROGRESS_KEY = 'absolute-pitch-highest-phase-';
 const THEME_KEY = 'absolute-pitch-theme';
+const AUDIO_DB_NAME = 'absolute-pitch-audio';
+const AUDIO_STORE_NAME = 'files';
+const AUDIO_CACHE_VERSION = 'v1';
 
 function setTheme(isDark) {
     document.body.classList.toggle('dark', isDark);
@@ -204,6 +224,59 @@ function writeStorage(key, value) {
     } catch (error) {
         console.warn('Não foi possível salvar as preferências locais.', error);
     }
+}
+function openAudioDatabase() {
+    if (!('indexedDB' in window)) return Promise.reject(new Error('IndexedDB não está disponível neste navegador.'));
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(AUDIO_DB_NAME, 1);
+        request.onupgradeneeded = () => request.result.createObjectStore(AUDIO_STORE_NAME);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+async function readCachedAudio(key) {
+    const database = await openAudioDatabase();
+    return new Promise((resolve, reject) => {
+        const request = database.transaction(AUDIO_STORE_NAME, 'readonly').objectStore(AUDIO_STORE_NAME).get(key);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+    });
+}
+async function writeCachedAudio(key, data) {
+    const database = await openAudioDatabase();
+    return new Promise((resolve, reject) => {
+        const transaction = database.transaction(AUDIO_STORE_NAME, 'readwrite');
+        transaction.objectStore(AUDIO_STORE_NAME).put(data, key);
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error);
+    });
+}
+async function requestPersistentStorage() {
+    if (!navigator.storage?.persist || await navigator.storage.persisted()) return;
+    await navigator.storage.persist();
+}
+async function loadAudioData(path) {
+    const key = `${AUDIO_CACHE_VERSION}:${path}`;
+    if (!audioLoadPromises.has(key)) {
+        audioLoadPromises.set(key, (async () => {
+            try {
+                const cached = await readCachedAudio(key);
+                if (cached) return cached;
+            } catch (error) {
+                console.warn('Não foi possível ler o cache de áudio.', error);
+            }
+            const response = await fetch(path);
+            if (!response.ok) throw new Error(`Não foi possível carregar ${path} (${response.status}).`);
+            const data = await response.arrayBuffer();
+            try {
+                await writeCachedAudio(key, data);
+            } catch (error) {
+                console.warn('Não foi possível salvar o áudio no cache persistente.', error);
+            }
+            return data;
+        })());
+    }
+    return audioLoadPromises.get(key);
 }
 
 function renderChoices() {
@@ -252,14 +325,14 @@ function loadProgress() {
 function saveProgress() {
     writeStorage(`${PROGRESS_KEY}${selectedInstrument}`, String(highestUnlockedPhase));
 }
-function formatOctaves(octaves) {
-    return `${octaves.length === 1 ? 'Oitava' : 'Oitavas'} ${octaves.join(', ')}`;
-}
 function renderPhaseOptions() {
     phaseSelect.innerHTML = currentPhases.map((phase, index) => {
         const locked = index > highestUnlockedPhase;
-        return `<option value="${index}" ${index === phaseIndex ? 'selected' : ''} ${locked ? 'disabled' : ''}>Nível ${phase.difficultyIndex + 1} · Fase ${index + 1} · ${formatOctaves(phase.octaves)}${locked ? ' (bloqueada)' : ''}</option>`;
+        return `<option value="${index}" ${index === phaseIndex ? 'selected' : ''} ${locked ? 'disabled' : ''}>Nível ${phase.difficultyIndex + 1} · Fase ${index + 1}${locked ? ' (bloqueada)' : ''}</option>`;
     }).join('');
+}
+function formatOctaves(octaves) {
+    return `${octaves.length === 1 ? 'Oitava' : 'Oitavas'} ${octaves.join(', ')}`;
 }
 function updatePhaseInfo() {
     if (!currentPhases.length) {
@@ -271,7 +344,7 @@ function updatePhaseInfo() {
 }
 function shuffle(values) {
     for (let index = values.length - 1; index > 0; index--) {
-        const swapIndex = Math.floor(Math.random() * (index + 1));
+        const swapIndex = randomInt(index + 1);
         [values[index], values[swapIndex]] = [values[swapIndex], values[index]];
     }
     return values;
@@ -282,6 +355,24 @@ function midiDetails(midi) {
 function noteToMidi(name) {
     const match = name.match(/^([A-G])s?(\d)$/); if (!match) return null;
     return (Number(match[2]) + 1) * 12 + NOTE_TO_MIDI[match[1]] + (name.includes('s') ? 1 : 0);
+}
+function randomUint32() {
+    if (!window.crypto?.getRandomValues) throw new Error('Seu navegador não oferece aleatoriedade segura.');
+    const values = new Uint32Array(1);
+    window.crypto.getRandomValues(values);
+    return values[0];
+}
+function randomInt(maxExclusive) {
+    if (!Number.isInteger(maxExclusive) || maxExclusive <= 0 || maxExclusive > 0x100000000) {
+        throw new RangeError('O limite da aleatoriedade deve ser um inteiro positivo válido.');
+    }
+    const limit = Math.floor(0x100000000 / maxExclusive) * maxExclusive;
+    let value;
+    do value = randomUint32(); while (value >= limit);
+    return value % maxExclusive;
+}
+function randomFraction() {
+    return randomUint32() / 0x100000000;
 }
 function sampleMap(instrument) {
     if (!sampleMaps[instrument]) {
@@ -303,9 +394,7 @@ async function getBuffer(midi, instrument) {
     });
     const sampleName = map[nearest];
     if (!audioBuffers[instrument][sampleName]) {
-        const response = await fetch(`./Samples/${instrument}/${sampleName}.wav`);
-        if (!response.ok) throw new Error(`Não foi possível carregar ${sampleName}.wav (${response.status}).`);
-        const decoded = await audioContext.decodeAudioData(await response.arrayBuffer());
+        const decoded = await audioContext.decodeAudioData(await loadAudioData(`./Samples/${instrument}/${sampleName}.wav`));
         const mono = audioContext.createBuffer(1, decoded.length, decoded.sampleRate);
         const output = mono.getChannelData(0);
         for (let channel = 0; channel < decoded.numberOfChannels; channel++) {
@@ -322,9 +411,35 @@ async function initAudio() {
     audioContext ||= new AudioContextConstructor();
     if (audioContext.state === 'suspended') await audioContext.resume();
 }
+async function playEffectSound(filename) {
+    await initAudio();
+    await preloadEffectSound(filename);
+    const source = audioContext.createBufferSource();
+    source.buffer = effectBuffers[filename];
+    source.connect(audioContext.destination);
+    source.start();
+}
+async function preloadEffectSound(filename) {
+    if (effectBuffers[filename]) return;
+    if (!effectLoadPromises.has(filename)) {
+        effectLoadPromises.set(filename, loadAudioData(`./Samples/${filename}`)
+            .then(data => audioContext.decodeAudioData(data))
+            .then(buffer => { effectBuffers[filename] = buffer; }));
+    }
+    await effectLoadPromises.get(filename);
+}
+function playClickSound() {
+    playEffectSound('Click.mp3').catch(error => console.error(error));
+}
 function playShepardTone() {
     const start = audioContext.currentTime + .04;
     const duration = SHEPARD_DURATION;
+    let shepardNote;
+    do {
+        shepardNote = randomInt(12);
+    } while (shepardNote === lastShepardNote);
+    lastShepardNote = shepardNote;
+    const baseFrequency = 130.81 * 2 ** (shepardNote / 12);
     const master = audioContext.createGain();
     master.gain.setValueAtTime(.28, start);
     master.connect(audioContext.destination);
@@ -333,7 +448,7 @@ function playShepardTone() {
     for (let octave = 0; octave < 5; octave++) {
         const oscillator = audioContext.createOscillator();
         const gain = audioContext.createGain();
-        const lowFrequency = 130.81 * 2 ** octave;
+        const lowFrequency = baseFrequency * 2 ** octave;
         oscillator.type = 'sine';
         oscillator.frequency.setValueAtTime(lowFrequency, start);
         oscillator.frequency.exponentialRampToValueAtTime(lowFrequency * 2, start + duration);
@@ -366,8 +481,8 @@ function randomNoteByOctave(pool) {
         notesByOctave.set(octave, notes);
     });
     const octaves = [...notesByOctave.values()];
-    const notes = octaves[Math.floor(Math.random() * octaves.length)];
-    return notes[Math.floor(Math.random() * notes.length)];
+    const notes = octaves[randomInt(octaves.length)];
+    return notes[randomInt(notes.length)];
 }
 function createSequence() {
     const { progression, outside, octaves: selectedOctaves } = currentPhases[phaseIndex];
@@ -381,6 +496,49 @@ function createSequence() {
         const pool = type === 'valid' ? valid : out;
         return { midi: randomNoteByOctave(pool), outside: type === 'outside' };
     });
+}
+async function preloadPhaseAudio() {
+    const { progression, outside, octaves } = currentPhases[phaseIndex];
+    const notes = [...progression, ...outside];
+    const sampleNames = new Set();
+    for (const note of notes) {
+        const pool = availableNotes([note], octaves, selectedInstrument);
+        for (const midi of pool) {
+            const map = sampleMap(selectedInstrument);
+            const nearest = sampleCandidates[selectedInstrument].reduce((closest, candidate) => {
+                return Math.abs(midi - candidate) < Math.abs(midi - closest) ? candidate : closest;
+            });
+            sampleNames.add(map[nearest]);
+        }
+    }
+    await Promise.all([...sampleNames].map(sampleName => getBuffer(noteToMidi(sampleName), selectedInstrument)));
+}
+function timerColor(progress) {
+    const greenToYellow = progress >= .5;
+    const start = greenToYellow ? [0, 200, 83] : [255, 214, 0];
+    const end = greenToYellow ? [255, 214, 0] : [255, 23, 68];
+    const amount = greenToYellow ? (1 - progress) * 2 : 1 - progress * 2;
+    const channels = start.map((channel, index) => Math.round(channel + (end[index] - channel) * amount));
+    return `rgb(${channels.join(', ')})`;
+}
+function showConfetti() {
+    const colors = ['#00c853', '#ffd600', '#ff1744', '#2979ff', '#d500f9'];
+    const confetti = document.createElement('div');
+    confetti.className = 'confetti';
+    confetti.setAttribute('aria-hidden', 'true');
+    for (let index = 0; index < 80; index++) {
+        const piece = document.createElement('span');
+        piece.className = 'confetti-piece';
+        piece.style.left = `${randomFraction() * 100}%`;
+        piece.style.setProperty('--confetti-color', colors[index % colors.length]);
+        piece.style.setProperty('--confetti-duration', `${2.2 + randomFraction() * 1.4}s`);
+        piece.style.setProperty('--confetti-delay', `${randomFraction() * .35}s`);
+        piece.style.setProperty('--confetti-drift', `${(randomFraction() - .5) * 180}px`);
+        piece.style.setProperty('--confetti-spin', `${360 + randomFraction() * 720}deg`);
+        confetti.appendChild(piece);
+    }
+    document.body.appendChild(confetti);
+    setTimeout(() => confetti.remove(), 4200);
 }
 async function playNext() {
     if (currentIndex >= sequence.length) return finish();
@@ -401,13 +559,15 @@ async function playNext() {
         currentSource.start();
     } catch (error) { finish(error); return; }
     waiting = true; timer.classList.add('active');
-    barFill.style.width = '100%';
-    timeLeft.textContent = `${(RESPONSE_TIME / 1000).toFixed(1)}s`;
+    timer.style.setProperty('--timer-progress', '100%');
+    timer.style.setProperty('--timer-color', timerColor(1));
     const started = performance.now();
     roundDeadline = started + RESPONSE_TIME;
     function tick() {
         const remaining = Math.max(0, RESPONSE_TIME - (performance.now() - started));
-        barFill.style.width = `${remaining / RESPONSE_TIME * 100}%`; timeLeft.textContent = `${(remaining / 1000).toFixed(1)}s`;
+        const progress = remaining / RESPONSE_TIME;
+        timer.style.setProperty('--timer-progress', `${progress * 100}%`);
+        timer.style.setProperty('--timer-color', timerColor(progress));
         if (remaining) timerId = requestAnimationFrame(tick); else processAnswer(null);
     }
     timerId = requestAnimationFrame(tick);
@@ -441,7 +601,10 @@ function finish(error) {
         return;
     }
     const percentage = Math.round(correct / ROUND_SIZE * 100);
+    const summary = `<table class="result-summary" aria-label="Resultado da fase"><tbody><tr><td><strong>Acertos</strong><span>${correct}</span></td><td><strong>Total</strong><span>${ROUND_SIZE}</span></td><td><strong>Porcentagem</strong><span>${percentage}%</span></td></tr></tbody></table>`;
     if (correct >= PASS_SCORE) {
+        showConfetti();
+        playEffectSound('LevelUp.mp3').catch(error => console.error(error));
         if (phaseIndex === highestUnlockedPhase && highestUnlockedPhase < currentPhases.length - 1) {
             highestUnlockedPhase++;
             saveProgress();
@@ -449,16 +612,16 @@ function finish(error) {
             renderPhaseOptions();
             updatePhaseInfo();
             renderAnswers();
-            status.innerHTML = `<div class="result">${correct} / ${ROUND_SIZE} (${percentage}%)<br>Fase concluída! Próxima: fase ${phaseIndex + 1}.</div>`;
+            status.innerHTML = `<div class="result">${summary}Fase concluída! Próxima: fase ${phaseIndex + 1}.</div>`;
         } else if (phaseIndex === currentPhases.length - 1) {
             saveProgress();
-            status.innerHTML = `<div class="result">${correct} / ${ROUND_SIZE} (${percentage}%)<br>Parabéns! Você concluiu todas as fases.</div>`;
+            status.innerHTML = `<div class="result">${summary}Parabéns! Você concluiu todas as fases.</div>`;
         } else {
-            status.innerHTML = `<div class="result">${correct} / ${ROUND_SIZE} (${percentage}%)<br>Fase concluída. Você pode avançar para a próxima fase.</div>`;
+            status.innerHTML = `<div class="result">${summary}Fase concluída. Você pode avançar para a próxima fase.</div>`;
         }
         return;
     }
-    status.innerHTML = `<div class="result">${correct} / ${ROUND_SIZE} (${percentage}%)<br>Você precisa de ${PASS_SCORE} acertos. Tente a fase novamente.</div>`;
+    status.innerHTML = `<div class="result">${summary}Você precisa de ${PASS_SCORE} acertos para avançar. Tente a fase novamente.</div>`;
 }
 async function startGame() {
     if (starting || startButton.disabled) return;
@@ -468,13 +631,22 @@ async function startGame() {
     instrumentSelection.disabled = true;
     try {
         await initAudio();
+        await playEffectSound('Click.mp3');
         clearTimeout(nextRoundTimer);
         sequence = createSequence(); currentIndex = 0; correct = 0; expectedKey = null;
         activeAnswerKeys = new Set(currentPhases[phaseIndex].progression.map(note => KEY_BY_NOTE[note]));
         if (currentPhases[phaseIndex].outside.length) activeAnswerKeys.add('g');
         startButton.blur();
         answers.classList.add('active');
+        status.innerHTML = '<div class="status-line">Carregando sons da fase...</div>';
+        try {
+            await requestPersistentStorage();
+        } catch (error) {
+            console.warn('Não foi possível solicitar armazenamento persistente.', error);
+        }
+        await preloadPhaseAudio();
         status.innerHTML = '<div class="status-line">Preparando a fase...</div>';
+        await new Promise(resolve => setTimeout(resolve, 500));
         await playShepardTone();
         await new Promise(resolve => setTimeout(resolve, RESPONSE_TIME));
         if (startButton.disabled) playNext();
@@ -486,18 +658,25 @@ function renderAnswers() {
     const progression = currentPhases[phaseIndex].progression;
     const lightText = new Set(['#991b1b', '#a16207', '#166534', '#2563eb', '#1d4ed8', '#9333ea', '#7e22ce']);
     const hasOutsideNote = currentPhases[phaseIndex].outside.length > 0;
-    const answerSize = progression.length >= 10 ? 'clamp(66px, 21vw, 82px)' : 'clamp(78px, 23vw, 96px)';
-    answers.innerHTML = `<div class="timer circle-timer" id="timer"><div class="bar"><div id="bar-fill"></div></div><span id="time-left"></span></div><div class="note-circle${hasOutsideNote ? ' has-oob' : ''}" style="--answer-size:${answerSize}">${progression.map((note, index) => {
+    const circleSize = Math.min(window.innerWidth * (window.innerWidth <= 500 ? .96 : .92), 460);
+    const radius = progression.length >= 12 ? 38 : 37;
+    const neighborSpacing = progression.length <= 1
+        ? Infinity
+        : circleSize * 2 * (radius / 100) * Math.sin(Math.PI / progression.length);
+    const edgeSpacing = circleSize * (0.5 - radius / 100);
+    const answerPixels = Math.min(96, neighborSpacing * .86, edgeSpacing * 1.7);
+    const answerSize = `${answerPixels}px`;
+    answers.innerHTML = `<div class="timer circle-timer" id="timer" aria-hidden="true"></div><div class="note-circle${hasOutsideNote ? ' has-oob' : ''}" style="--answer-size:${answerSize}">${progression.map((note, index) => {
         const color = NOTE_COLORS[NOTES.indexOf(note)];
         const radians = index * (2 * Math.PI / progression.length);
-        const radius = progression.length >= 10 ? 45 : 37;
         const x = 50 + radius * Math.sin(radians);
         const y = 50 - radius * Math.cos(radians);
         return `<button type="button" class="answer" style="left:${x}%;top:${y}%;--note-color:${color};--note-text:${lightText.has(color) ? '#fff' : '#111'}" data-key="${KEY_BY_NOTE[note]}" aria-label="${note}, tecla ${KEY_BY_NOTE[note].toUpperCase()}">${note}<span class="answer-key">${KEY_BY_NOTE[note].toUpperCase()}</span></button>`;
     }).join('')}${hasOutsideNote ? '<button type="button" class="answer answer-oob" data-key="g">Fora do tom<span class="answer-key">G</span></button>' : ''}</div>`;
     timer = answers.querySelector('#timer');
-    barFill = answers.querySelector('#bar-fill');
-    timeLeft = answers.querySelector('#time-left');
+}
+for (const select of [instrumentSelection, phaseSelect]) {
+    select.addEventListener('change', playClickSound);
 }
 phaseSelect.addEventListener('change', () => {
     if (phaseSelect.disabled) return;
@@ -547,6 +726,9 @@ document.addEventListener('keydown', event => {
 });
 loadTheme();
 renderChoices(); renderAnswers();
+initAudio().then(() => preloadEffectSound('Click.mp3')).catch(error => {
+    console.warn('Não foi possível pré-carregar o som de clique.', error);
+});
 
 if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
     window.addEventListener('load', () => {
