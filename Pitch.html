@@ -124,7 +124,7 @@
 
     <p class="game-instructions">A fase tem 20 notas, então para cada nota, aperte em menos de 2 segundos a nota correta.</p>
     <button type="button" class="primary" id="start">Iniciar fase</button>
-    <div id="status"></div>
+    <div id="status" aria-live="polite"></div>
     <div class="answers" id="answers"></div>
 </main>
 
@@ -252,8 +252,11 @@ async function writeCachedAudio(key, data) {
     });
 }
 async function requestPersistentStorage() {
-    if (!navigator.storage?.persist || await navigator.storage.persisted()) return;
-    await navigator.storage.persist();
+    if (!navigator.storage) return { available: false, persistent: false };
+    let persistent = false;
+    if (navigator.storage.persisted) persistent = await navigator.storage.persisted();
+    if (!persistent && navigator.storage.persist) persistent = await navigator.storage.persist();
+    return { available: true, persistent };
 }
 async function loadAudioData(path) {
     const key = `${AUDIO_CACHE_VERSION}:${path}`;
@@ -408,8 +411,11 @@ async function getBuffer(midi, instrument) {
 async function initAudio() {
     const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextConstructor) throw new Error('Seu navegador não oferece suporte a áudio.');
-    audioContext ||= new AudioContextConstructor();
+    if (!audioContext || audioContext.state === 'closed') audioContext = new AudioContextConstructor();
     if (audioContext.state === 'suspended') await audioContext.resume();
+    if (audioContext.state !== 'running') {
+        throw new Error('O áudio está bloqueado. Toque ou clique em “Iniciar fase” para permitir a reprodução.');
+    }
 }
 async function playEffectSound(filename) {
     await initAudio();
@@ -639,10 +645,14 @@ async function startGame() {
         startButton.blur();
         answers.classList.add('active');
         status.innerHTML = '<div class="status-line">Carregando sons da fase...</div>';
+        let storage = { available: false, persistent: false };
         try {
-            await requestPersistentStorage();
+            storage = await requestPersistentStorage();
         } catch (error) {
             console.warn('Não foi possível solicitar armazenamento persistente.', error);
+        }
+        if (!storage.persistent) {
+            status.innerHTML = '<div class="status-line">O navegador pode limpar o cache e o progresso se o armazenamento não for mantido.</div>';
         }
         await preloadPhaseAudio();
         status.innerHTML = '<div class="status-line">Preparando a fase...</div>';
@@ -726,9 +736,6 @@ document.addEventListener('keydown', event => {
 });
 loadTheme();
 renderChoices(); renderAnswers();
-initAudio().then(() => preloadEffectSound('Click.mp3')).catch(error => {
-    console.warn('Não foi possível pré-carregar o som de clique.', error);
-});
 
 if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
     window.addEventListener('load', () => {
