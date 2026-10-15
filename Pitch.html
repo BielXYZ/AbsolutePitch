@@ -187,7 +187,7 @@ const audioBuffers = {}, audioBufferPromises = {}, effectBuffers = {}, sampleMap
 const audioLoadPromises = new Map();
 const effectLoadPromises = new Map();
 const RESPONSE_TIME = 2000, ROUND_SIZE = 20, HALF_ROUND = ROUND_SIZE / 2, PASS_SCORE = 18;
-const FIRST_MIDI = 21, LAST_MIDI = 108, OCTAVE_COUNT = 8, SHEPARD_DURATION = 7;
+const FIRST_MIDI = 21, LAST_MIDI = 108, OCTAVE_COUNT = 7, SHEPARD_DURATION = 7;
 const NOTE_ATTACK = .01;
 let audioContext, currentSource, sequence = [], currentIndex = 0, correct = 0;
 let phaseIndex = 0, highestUnlockedPhase = 0, expectedKey = null, waiting = false, timerId, nextRoundTimer;
