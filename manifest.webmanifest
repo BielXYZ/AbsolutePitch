@@ -1,7 +1,7 @@
 {
     "name": "Treino de Ouvido",
     "short_name": "Treino de Ouvido",
-    "description": "Treine seu ouvido absoluto com diferentes instrumentos e fases.",
+    "description": "Treine seu ouvido absoluto com diferentes instrumentos.",
     "lang": "pt-BR",
     "start_url": "./Pitch.html",
     "scope": "./",
