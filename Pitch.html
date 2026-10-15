@@ -107,7 +107,7 @@
     <header class="brand">
         <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Ativar modo escuro" aria-pressed="false"><span aria-hidden="true">☾</span></button>
         <h1>Treino de Ouvido</h1>
-        <p class="subtitle">Desenvolva seu ouvido absoluto, uma nota por vez.</p>
+        <p class="subtitle">Desenvolva seu ouvido absoluto.</p>
     </header>
 
     <section class="settings" aria-label="Configurações">
@@ -335,7 +335,7 @@ function renderPhaseOptions() {
     }).join('');
 }
 function formatOctaves(octaves) {
-    return `${octaves.length === 1 ? 'Oitava' : 'Oitavas'} ${octaves.join(', ')}`;
+    return `${octaves.length === 1 ? 'Oitava:' : 'Oitavas'} ${octaves.join(', ')}`;
 }
 function updatePhaseInfo() {
     if (!currentPhases.length) {
@@ -618,7 +618,7 @@ function finish(error) {
             renderPhaseOptions();
             updatePhaseInfo();
             renderAnswers();
-            status.innerHTML = `<div class="result">${summary}Fase concluída! Próxima: fase ${phaseIndex + 1}.</div>`;
+            status.innerHTML = `<div class="result">${summary}Fase concluída. Você pode avançar para a fase ${phaseIndex + 1}.</div>`;
         } else if (phaseIndex === currentPhases.length - 1) {
             saveProgress();
             status.innerHTML = `<div class="result">${summary}Parabéns! Você concluiu todas as fases.</div>`;
