@@ -299,12 +299,17 @@ function renderChoices() {
     updatePhaseInfo();
     startButton.disabled = !currentPhases.length;
 }
-function availableOctaves(instrument) {
-    const [, min, max] = INSTRUMENTS[instrument];
+function octavesInRange(min, max, complete) {
     return Array.from({ length: OCTAVE_COUNT }, (_, index) => index + 1).filter(octave => {
         const firstMidi = (octave + 1) * 12;
-        return firstMidi <= max && firstMidi + 11 >= min;
+        const lastMidi = firstMidi + 11;
+        return complete ? firstMidi >= min && lastMidi <= max : firstMidi <= max && lastMidi >= min;
     });
+}
+function availableOctaves(instrument) {
+    const [, min, max] = INSTRUMENTS[instrument];
+    const complete = octavesInRange(min, max, true);
+    return complete.length ? complete : octavesInRange(min, max, false);
 }
 function orderedOctaves(instrument) {
     const octaves = availableOctaves(instrument);
