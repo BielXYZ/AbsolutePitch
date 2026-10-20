@@ -123,7 +123,7 @@
         </div>
     </section>
 
-    <p class="game-instructions">A fase tem 20 notas, então para cada nota, aperte em menos de 2 segundos a nota correta.</p>
+    <p class="game-instructions">Ouça o som e clique na nota correspondente na roda (ou aperte a tecla indicada no computador) em até 2 segundos. Se a nota tocada não fizer parte da fase, selecione Fora do Tom no centro. A fase tem 20 notas e exige 18 acertos para avançar.</p>
     <button type="button" class="primary" id="start">Iniciar fase</button>
     <div id="status" aria-live="polite"></div>
     <div class="answers" id="answers"></div>
@@ -729,7 +729,7 @@ function renderAnswers() {
         const x = 50 + radius * Math.sin(radians);
         const y = 50 - radius * Math.cos(radians);
         return `<button type="button" class="answer" style="left:${x}%;top:${y}%;--note-color:${color};--note-text:${lightText.has(color) ? '#fff' : '#111'}" data-key="${KEY_BY_NOTE[note]}" aria-label="${note}, tecla ${KEY_BY_NOTE[note].toUpperCase()}">${note}<span class="answer-key">${KEY_BY_NOTE[note].toUpperCase()}</span></button>`;
-    }).join('')}${hasOutsideNote ? '<button type="button" class="answer answer-oob" data-key="g">Fora do tom<span class="answer-key">G</span></button>' : ''}</div>`;
+    }).join('')}${hasOutsideNote ? '<button type="button" class="answer answer-oob" data-key="g">Fora do Tom<span class="answer-key">G</span></button>' : ''}</div>`;
     timer = answers.querySelector('#timer');
 }
 for (const select of [instrumentSelection, phaseSelect]) {
