@@ -199,6 +199,7 @@ let shepardSources = [];
 let lastShepardNote = -1;
 const PROGRESS_KEY = 'absolute-pitch-highest-phase-';
 const THEME_KEY = 'absolute-pitch-theme';
+const INSTRUMENT_KEY = 'absolute-pitch-instrument';
 const AUDIO_DB_NAME = 'absolute-pitch-audio';
 const AUDIO_STORE_NAME = 'files';
 const AUDIO_CACHE_VERSION = 'v1';
@@ -289,8 +290,12 @@ async function loadAudioData(path) {
 }
 
 function renderChoices() {
+    const savedInstrument = readStorage(INSTRUMENT_KEY);
+    if (savedInstrument && INSTRUMENTS[savedInstrument]) {
+        selectedInstrument = savedInstrument;
+    }
     instrumentSelection.innerHTML = Object.entries(INSTRUMENTS).map(([value, [label]]) =>
-        `<option value="${value}"${value === 'piano' ? ' selected' : ''}>${label}</option>`
+        `<option value="${value}"${value === selectedInstrument ? ' selected' : ''}>${label}</option>`
     ).join('');
     selectedInstrument = instrumentSelection.value;
     currentPhases = buildPhases(selectedInstrument);
@@ -739,6 +744,7 @@ phaseSelect.addEventListener('change', () => {
 });
 instrumentSelection.addEventListener('change', () => {
     selectedInstrument = instrumentSelection.value;
+    writeStorage(INSTRUMENT_KEY, selectedInstrument);
     currentPhases = buildPhases(selectedInstrument);
     loadProgress();
     renderPhaseOptions();
